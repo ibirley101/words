@@ -272,6 +272,12 @@ impl Board {
                     Err(E) => {println!("{word} not found in dictionary"); return 0 },
                 }
             }
+
+            let score = self.score_down(space.0, space.1) + self.score_across(space.0, space.1);
+            self.board[space.0][space.1].val = score_letter(self.board[space.0][space.1].tile);
+            println!("Play is worth {score} points");
+
+            return score;
         }
 
         // 1. {
@@ -611,6 +617,37 @@ impl Board {
         }
 
         println!("{result}");
+    }
+
+    pub fn write_across(&mut self, word: String, row: usize, col: usize) {
+        let mut curr_col = col;
+        for c in word.chars() {
+            if self.board[row][curr_col].tile != '-' {
+                if self.board[row][curr_col].tile != c.to_ascii_uppercase() {
+                    println!("Cannot write {word} to ({row} {col})");
+                    return;
+                }
+            }
+            else {
+                self.put_tile(c, row, curr_col);
+            }
+            curr_col += 1;
+        }
+    }
+
+    pub fn write_down(&mut self, word: String, row: usize, col: usize) {
+        let mut curr_row = row;
+        for c in word.chars() {
+            if self.board[curr_row][col].tile != '-' {
+                if self.board[curr_row][col].tile != c.to_ascii_uppercase() {
+                    println!("Cannot write ({word} {col})");
+                }
+            }
+            else {
+                self.put_tile(c, curr_row, col);
+            }
+            curr_row += 1;
+        }
     }
 }
 

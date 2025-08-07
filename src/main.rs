@@ -78,12 +78,33 @@ fn run() -> io::Result<()> {
 
             board.put_tile(tile.chars().nth(0).unwrap(), row, col);
         }
+        else if s.starts_with("wa") {
+            let mut iter = s.split_whitespace();
+            iter.next();
+
+            let word = iter.next().unwrap();
+            let row: usize = iter.next().unwrap().parse().unwrap();
+            let col: usize = iter.next().unwrap().parse().unwrap();
+
+            board.write_across(word.to_string(), row, col);
+        }
+        else if s.starts_with("wd") {
+            let mut iter = s.split_whitespace();
+            iter.next();
+
+            let word = iter.next().unwrap();
+            let row: usize = iter.next().unwrap().parse().unwrap();
+            let col: usize = iter.next().unwrap().parse().unwrap();
+
+            board.write_down(word.to_string(), row, col);
+        }
         else if s == "exit" {
             return Ok(());
         }
         else if s == "submit" {
             board.submit();
-        } else if s == "unstage" {
+        }
+        else if s == "unstage" {
             board.unstage();
         }
         else {
