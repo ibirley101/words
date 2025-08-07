@@ -70,7 +70,11 @@ fn run() -> io::Result<()> {
         }
         else if s.starts_with("put") {
             let mut iter = s.split_whitespace();
-            iter.next();
+            let cmd = iter.next().expect("first iteration should exist");
+            if cmd != "put" {
+                println!("Invalid command. Please try again.");
+                continue;
+            }
 
             let tile = iter.next().unwrap();
             let row: usize = iter.next().unwrap().parse().unwrap();
@@ -80,7 +84,11 @@ fn run() -> io::Result<()> {
         }
         else if s.starts_with("wa") {
             let mut iter = s.split_whitespace();
-            iter.next();
+            let cmd = iter.next().expect("first iteration should exist");
+            if cmd != "wa" {
+                println!("Invalid command. Please try again.");
+                continue;
+            }
 
             let word = iter.next().unwrap();
             let row: usize = iter.next().unwrap().parse().unwrap();
@@ -90,7 +98,11 @@ fn run() -> io::Result<()> {
         }
         else if s.starts_with("wd") {
             let mut iter = s.split_whitespace();
-            iter.next();
+            let cmd = iter.next().expect("first iteration should exist");
+            if cmd != "wd" {
+                println!("Invalid command. Please try again.");
+                continue;
+            }
 
             let word = iter.next().unwrap();
             let row: usize = iter.next().unwrap().parse().unwrap();

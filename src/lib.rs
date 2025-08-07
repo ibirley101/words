@@ -3,6 +3,7 @@ use rand::seq::SliceRandom;
 use std::fs::File;
 use std::path::Path;
 use std::io::{self, BufRead};
+use std::collections::HashSet;
 
 const LETTER_SCORES: [i32; 26] = [1, 3, 3, 2, 1, 4, 2, 4, 1, 8, 5, 1, 3, 1, 1, 3, 10, 1, 1, 1, 1, 4, 4, 8, 4, 10];
 
@@ -69,7 +70,8 @@ impl Bag {
 pub struct Board {
     board: Vec<Vec<Space>>,
     staged_spaces: Vec<(usize, usize)>,
-    word_list: Vec<String>
+    word_list: Vec<String>,
+    neighbors: HashSet<(usize, usize)>,
 }
 
 impl Board {
@@ -112,7 +114,10 @@ impl Board {
         board.push(vec![id.clone(), dw.clone(), id.clone(), id.clone(), id.clone(), tl.clone(), id.clone(), id.clone(), id.clone(), tl.clone(), id.clone(), id.clone(), id.clone(), dw.clone(), id.clone()]);
         board.push(vec![tw.clone(), id.clone(), id.clone(), dl.clone(), id.clone(), id.clone(), id.clone(), tw.clone(), id.clone(), id.clone(), id.clone(), dl.clone(), id.clone(), id.clone(), tw.clone()]);
 
-        Board { board: board, staged_spaces: Vec::new(), word_list: word_list }
+        let mut neighbors = HashSet::new();
+        neighbors.insert((7, 7));
+
+        Board { board: board, staged_spaces: Vec::new(), word_list: word_list, neighbors: neighbors }
     }
 
     pub fn put_tile(&mut self, tile: char, row: usize, col: usize) {
@@ -246,21 +251,31 @@ impl Board {
         Some(end)
     }
 
-    pub fn submit(&mut self) -> i32 {
-        // validate the proposed tile additions and submit them.
+    pub fn is_valid(&self) -> bool {
         // submission are valid if and only if:
+        // 1. {
+        // There is only one staged tile OR
+        // All staged tiles have one fixed dimension (they go up/down or left/right) 
+        //} AND 
+        // 2. { At least one staged tile is in the neighbors set }
+        // 3. { All staged tiles abut either another staged tile or a committed tile } AND
+        // 4. { All crossings between staged tiles and committed tiles form legal words } AND
 
 
         // special case if only one tile is submitted
         if self.staged_spaces.len() == 1 {
             let space = self.staged_spaces[0];
+            if !self.neighbors.contains(&space) {
+                println!("({}, {}) does not abut the existing tiles.", space.0, space.1);
+                return false;
+            }
+
             let word = self.get_word_across(space.0, space.1);
-            
             if !word.is_none() {
                 let word = word.unwrap();
                 match self.word_list.binary_search(&word) {
                     Ok(pos) => println!("{word} accepted"),
-                    Err(E) => {println!("{word} not found in dictionary"); return 0 },
+                    Err(E) => {println!("{word} not found in dictionary"); return false },
                 }
             }
             
@@ -269,29 +284,32 @@ impl Board {
                 let word = word.unwrap();
                 match self.word_list.binary_search(&word) {
                     Ok(pos) => println!("{word} accepted"),
-                    Err(E) => {println!("{word} not found in dictionary"); return 0 },
+                    Err(E) => {println!("{word} not found in dictionary"); return false },
                 }
             }
 
-            let score = self.score_down(space.0, space.1) + self.score_across(space.0, space.1);
-            self.board[space.0][space.1].val = score_letter(self.board[space.0][space.1].tile);
-            println!("Play is worth {score} points");
-
-            return score;
+            return true;
         }
 
-        // 1. {
-        // There is only one staged tile OR
-        // All staged tiles have one fixed dimension (they go up/down or left/right) 
-        //} AND 
-        // 2. { All staged tiles abut either another staged tile or a committed tile } AND
-        // 3. { All crossings between staged tiles and committed tiles form legal words }
 
+        // validate that at least one staged space is in the neighbors set.
+        let mut staged_spaces_abut = false;
+        for space in &self.staged_spaces {
+            if self.neighbors.contains(space) {
+                staged_spaces_abut = true;
+                break;
+            }
+        }
+        if !staged_spaces_abut {
+            println!("No staged space abuts the neighbors list.");
+            return false;
+        }
 
+        
+        // validate fixed dimension:
         let mut const_row = false;
         let mut const_col = false;
 
-        // validate fixed dimension:
         let tile1_row = self.staged_spaces[0].0;
         let tile1_col = self.staged_spaces[0].1;
         let tile2_row = self.staged_spaces[1].0;
@@ -305,20 +323,20 @@ impl Board {
         }
         else {
             println!("Invalid tile submission.");
-            return 0;
+            return false;
         }
 
         for space in &self.staged_spaces {
             if const_row {
                 if space.0 != tile1_row {
                     println!("Invalid tile submission. Non-constant row.");
-                    return 0;
+                    return false;
                 }
             }
             else if const_col {
                 if space.1 != tile1_col {
                     println!("Invalid tile submission. Non-constant column.");
-                    return 0;
+                    return false;
                 }
             }
         }
@@ -363,7 +381,7 @@ impl Board {
             for space in &self.staged_spaces {
                 if space.1 > rightmost || space.1 < leftmost {
                     println!("Non-contiguous submission because {} not in [{} {}].", space.1, leftmost, rightmost);
-                    return 0;
+                    return false;
                 }
             }
 
@@ -375,7 +393,7 @@ impl Board {
             for space in &self.staged_spaces {
                 if space.0 > downmost || space.0 < upmost {
                     println!("Non-contiguous submission because {} not in [{} {}].", space.0, upmost, downmost);
-                    return 0;
+                    return false;
                 }
             }
         }
@@ -387,7 +405,7 @@ impl Board {
 
             match self.word_list.binary_search(&main_word) {
                 Ok(pos) => println!("{main_word} accepted"),
-                Err(E) => {println!("{main_word} not found in dictionary"); return 0 },
+                Err(E) => {println!("{main_word} not found in dictionary"); return false },
             }
 
             // check crossing word validities
@@ -398,7 +416,7 @@ impl Board {
                     let word = word.unwrap();
                     match self.word_list.binary_search(&word) {
                         Ok(pos) => println!("{word} accepted"),
-                        Err(E) => {println!("{word} not found in dictionary"); return 0 },
+                        Err(E) => {println!("{word} not found in dictionary"); return false },
                     }
                 }
             }
@@ -407,7 +425,7 @@ impl Board {
             let main_word = self.get_word_down(tile1_row, tile1_col).unwrap();
             match self.word_list.binary_search(&main_word) {
                 Ok(word) => println!("{main_word} accepted"),
-                Err(E) => {println!("{main_word} not found in dictionary"); return 0 },
+                Err(E) => {println!("{main_word} not found in dictionary"); return false },
             }
 
             // check crossing word validities
@@ -419,31 +437,155 @@ impl Board {
                     println!("Checking word {word}");
                     match self.word_list.binary_search(&word) {
                         Ok(pos) => println!("{word} accepted"),
-                        Err(E) => {println!("{word} not found in dictionary"); return 0 },
+                        Err(E) => {println!("{word} not found in dictionary"); return false },
                     }
                 }
             }
         }
 
+        true
+    }
+
+    pub fn submit(&mut self) -> i32 {
+        if !self.is_valid() {
+            println!("Not accepting submission");
+            return 0;
+        }
+
         // score staged word
-        let score = self.score(const_row);
+        let score = self.score();
         println!("Play is worth {} points.", score);
 
         for space in &self.staged_spaces {
             self.board[space.0][space.1].val = score_letter(self.board[space.0][space.1].tile);
+
+            // remove space from the neighbor list and add its neighbors provided they 
+            // are not already occupied.
+            self.neighbors.remove(space);
+
+            let space_neighbors = self.get_neighbor_candidates(space.0, space.1);
+            for neighbor in space_neighbors {
+                self.neighbors.insert(neighbor);
+            }
         }
         self.staged_spaces.clear();
+
+        println!("Neighbor list: {:?}", self.neighbors);
 
         score
     }
 
-    pub fn score(&self, across: bool) -> i32 {
+    fn get_neighbor_candidates(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
+        let mut result = Vec::new();
+
+        let top_edge = row == 0;
+        let bottom_edge = row == 14;
+        let left_edge = col == 0;
+        let right_edge = col == 14;
+
+        // There's probably a better way to do this, but I just went with this.
+        if left_edge && top_edge { // top-left corner
+            if self.board[row+1][col].tile == '-' {
+                result.push((row+1, col));
+            }
+            if self.board[row][col+1].tile == '-' {
+                result.push((row, col+1));
+            }
+        } else if left_edge && bottom_edge { // bottom-left corner
+            if self.board[row-1][col].tile == '-' {
+                result.push((row-1, col));
+            }
+                if self.board[row][col+1].tile == '-' {
+                result.push((row, col+1));
+            }
+        } else if left_edge { // non-corner left
+            if self.board[row-1][col].tile == '-' {
+                result.push((row-1, col));
+            }
+                if self.board[row][col+1].tile == '-' {
+                result.push((row, col+1));
+            }
+            if self.board[row+1][col].tile == '-' {
+                result.push((row+1, col));
+            }
+        } else if bottom_edge && right_edge { // bottom-right corner
+            if self.board[row-1][col].tile == '-' {
+                result.push((row-1, col));
+            }
+            if self.board[row][col-1].tile == '-' {
+                result.push((row, col-1));
+            }
+        } else if bottom_edge { // non-corner bottom
+            if self.board[row-1][col].tile == '-' {
+                result.push((row-1, col));
+            }
+            if self.board[row][col-1].tile == '-' {
+                result.push((row, col-1));
+            }
+            if self.board[row][col+1].tile == '-' {
+                result.push((row, col+1));
+            }
+        } else if right_edge && top_edge { // top-right corner
+            if self.board[row+1][col].tile == '-' {
+                result.push((row+1, col));
+            }
+            if self.board[row][col-1].tile == '-' {
+                result.push((row, col-1));
+            }
+        } else if right_edge { // non-corner right
+            if self.board[row+1][col].tile == '-' {
+                result.push((row+1, col));
+            }
+            if self.board[row][col-1].tile == '-' {
+                result.push((row, col-1));
+            }
+            if self.board[row-1][col].tile == '-' {
+                result.push((row-1, col));
+            }
+        } else if top_edge { // non-corner top
+            if self.board[row+1][col].tile == '-' {
+                result.push((row+1, col));
+            }
+            if self.board[row][col-1].tile == '-' {
+                result.push((row, col-1));
+            }
+            if self.board[row][col+1].tile == '-' {
+                result.push((row, col+1));
+            }
+        } else { // non-edge case
+            if self.board[row-1][col].tile == '-' {
+                result.push((row-1, col));
+            }
+            if self.board[row+1][col].tile == '-' {
+                result.push((row+1, col));
+            }
+            if self.board[row][col-1].tile == '-' {
+                result.push((row, col-1));
+            }
+            if self.board[row][col+1].tile == '-' {
+                result.push((row, col+1));
+            }
+        }
+
+        result
+    }
+
+    pub fn score(&self) -> i32 {
         // accumulate the main score while keeping track of the crossing scores
+        if self.staged_spaces.is_empty() {
+            return 0;
+        }
+        if self.staged_spaces.len() == 1 {
+            let space = self.staged_spaces[0];
+            return self.score_down(space.0, space.1) + self.score_across(space.0, space.1);
+        }
 
         let mut word_mult = 1;
         let mut score = 0;
         let mut cross_score_sum = 0;
         let mut count = 0;
+
+        let across = self.staged_spaces[0].0 == self.staged_spaces[1].0;
 
         for space in &self.staged_spaces {
             count += 1;
@@ -620,11 +762,20 @@ impl Board {
     }
 
     pub fn write_across(&mut self, word: String, row: usize, col: usize) {
+        if row > 14 || col > 14 { // usize means no need for a lower bounds check
+            println!("Cannot write to ({row}, {col}). Cout of bounds.");
+            return;
+        }
+
         let mut curr_col = col;
         for c in word.chars() {
+            if curr_col > 14 {
+                println!("Cannot write {word} to ({row}, {col}). Out of bounds.");
+                return;
+            }
             if self.board[row][curr_col].tile != '-' {
                 if self.board[row][curr_col].tile != c.to_ascii_uppercase() {
-                    println!("Cannot write {word} to ({row} {col})");
+                    println!("Cannot write {word} to ({row}, {col})");
                     return;
                 }
             }
@@ -636,8 +787,17 @@ impl Board {
     }
 
     pub fn write_down(&mut self, word: String, row: usize, col: usize) {
+        if row > 14 || col > 14 {
+            println!("Cannot write to ({row}, {col}). Out of bounds.");
+            return;
+        }
+        
         let mut curr_row = row;
         for c in word.chars() {
+            if curr_row > 14 {
+                println!("Cannot write {word} to ({row}, {col}. Out of bounds.");
+                return;
+            }
             if self.board[curr_row][col].tile != '-' {
                 if self.board[curr_row][col].tile != c.to_ascii_uppercase() {
                     println!("Cannot write ({word} {col})");
@@ -970,5 +1130,47 @@ mod tests {
         
         score = board.submit();
         assert_eq!(score, 15);
+    }
+
+    #[test]
+    fn test_fuzz_3() {
+        // https://www.cross-tables.com/annotated.php?u=55086#1#
+        let mut score;
+        let mut board = Board::new("dict.txt".to_string());
+
+        board.write_across(String::from("leavy"), 7, 7);
+        score = board.submit();
+        assert_eq!(score, 30);
+
+        board.write_across(String::from("oration"), 8, 2);
+        score = board.submit();
+        assert_eq!(score, 65);
+
+        board.write_down(String::from("fondly"), 2, 11);
+        board.show();
+        score = board.submit();
+        assert_eq!(score, 26);
+    }
+
+    #[test]
+    fn test_contiguity() {
+        let mut board = Board::new("dict.txt".to_string());
+
+        board.write_across(String::from("leave"), 7, 7);
+        assert!(board.submit() > 0);
+
+        board.write_across(String::from("oration"), 8, 2);
+        assert!(board.submit() > 0);
+
+
+        // try non-contiguous
+        board.write_down(String::from("floo"), 6, 7);
+        board.put_tile('r', 11, 7); // not contiguous
+        assert!(!board.is_valid());
+        board.unstage();
+
+        // try word separate from the rest
+        board.write_across(String::from("fond"), 0, 0);
+        assert!(!board.is_valid());
     }
 }
