@@ -17,6 +17,7 @@ pub fn score_letter(letter: char) -> i32 {
 
 pub struct Bag {
     pub tiles: Vec<char>,
+    rng: rand::rngs::ThreadRng
 }
 
 impl Bag {
@@ -53,7 +54,7 @@ impl Bag {
         let mut rng = rand::rng();
         tiles.shuffle(&mut rng);
 
-        Bag { tiles: tiles }
+        Bag { tiles: tiles, rng: rng }
     }
 
     pub fn draw(&mut self, rack: &mut Vec<char>, n: i32){
@@ -64,6 +65,107 @@ impl Bag {
                 None => return,
             }
         }
+    }
+
+    // make sure to shuffle after using this!!
+    pub fn add_tile(&mut self, tile: char) {
+        self.tiles.push(tile);
+    }
+
+    pub fn shuffle(&mut self) {
+        self.tiles.shuffle(&mut self.rng)
+    }
+
+    pub fn size(&self) -> usize {
+        self.tiles.len()
+    }
+}
+
+#[derive(Debug)]
+pub struct Rack {
+    tiles: [usize; 128],
+    size: usize,
+}
+
+impl Rack {
+    pub fn new() -> Self {
+        let tiles = [0; 128];
+        Rack { tiles: tiles, size: 0 }
+    }
+    
+    pub fn add_tile(&mut self, tile: char) {
+        self.tiles[tile as usize] += 1;
+        self.size += 1;
+    }
+
+    pub fn remove_tile(&mut self, tile: char) {
+        self.tiles[tile as usize] -= 1;
+        self.size -= 1;
+    }
+
+    pub fn draw(&mut self, bag: &mut Bag) {
+        while self.size < 7 {
+            let tile = bag.tiles.pop();
+            match tile {
+                Some(c) => self.add_tile(c),
+                None => return,
+            }
+        }
+    }
+
+    pub fn swap(&mut self, bag: &mut Bag, tiles: Vec<char>) {
+        // need to make sure each tile 
+        let mut tiles_to_push = Vec::new();
+        for tile in tiles {
+            if self.tiles[tile as usize] == 0 {
+                println!("Can't swap. Rack doesn't have enough of {tile}.");
+                for replacement in tiles_to_push {
+                    self.add_tile(replacement);
+                }
+                return;
+            } else {
+                self.remove_tile(tile);
+                tiles_to_push.push(tile);
+            }
+        }
+        self.draw(bag);
+        for tile in tiles_to_push {
+            bag.add_tile(tile);
+        }
+        bag.shuffle();
+    }
+
+    pub fn show(&self) {
+        let mut result = Vec::new();
+        for elt in 'A'..='Z' {
+            for _ in 0..self.tiles[elt as usize] {
+                result.push(elt);
+            }
+        }
+        for _ in 0..self.tiles['*' as usize] {
+            result.push('*');
+        }
+        println!("{:?}", result);
+        for elt in result {
+            print!("{} ", elt);
+        }
+        print!("\n");
+    }
+
+    pub fn has_tile(&mut self, tile: char) -> bool {
+        if self.tiles[tile as usize] == 0 {
+            return false;
+        }
+
+        true
+    }
+
+    pub fn use_tile(&mut self, tile: char) {
+        if self.tiles[tile as usize] == 0 {
+            return;
+        }
+        self.tiles[tile as usize] -= 1;
+        self.size -= 1;
     }
 }
 
@@ -120,11 +222,20 @@ impl Board {
         Board { board: board, staged_spaces: Vec::new(), word_list: word_list, neighbors: neighbors }
     }
 
+    pub fn put_tile_from_rack(&mut self, rack: &mut Rack, tile: char, row: usize, col: usize) {
+        if !rack.has_tile(tile) {
+            println!("Cannot put tile {tile}. Not in rack.");
+            return;
+        }
+        self.put_tile(tile, row, col);
+        rack.use_tile(tile);
+    }
+
     pub fn put_tile(&mut self, tile: char, row: usize, col: usize) {
         // add logic to keep track of unsubmitted characters, kind of like git staging/committing.
         // add logic to prevent putting a tile on a filled space
 
-        
+
         if self.board[row][col].tile != '-' {
             return; // not empty
         }
@@ -274,8 +385,8 @@ impl Board {
             if !word.is_none() {
                 let word = word.unwrap();
                 match self.word_list.binary_search(&word) {
-                    Ok(pos) => println!("{word} accepted"),
-                    Err(E) => {println!("{word} not found in dictionary"); return false },
+                    Ok(_pos) => println!("{word} accepted"),
+                    Err(_e) => {println!("{word} not found in dictionary"); return false },
                 }
             }
             
@@ -283,8 +394,8 @@ impl Board {
             if !word.is_none() {
                 let word = word.unwrap();
                 match self.word_list.binary_search(&word) {
-                    Ok(pos) => println!("{word} accepted"),
-                    Err(E) => {println!("{word} not found in dictionary"); return false },
+                    Ok(_pos) => println!("{word} accepted"),
+                    Err(_e) => {println!("{word} not found in dictionary"); return false },
                 }
             }
 
@@ -404,8 +515,8 @@ impl Board {
             let main_word = self.get_word_across(tile1_row, tile1_col).unwrap();
 
             match self.word_list.binary_search(&main_word) {
-                Ok(pos) => println!("{main_word} accepted"),
-                Err(E) => {println!("{main_word} not found in dictionary"); return false },
+                Ok(_pos) => println!("{main_word} accepted"),
+                Err(_e) => {println!("{main_word} not found in dictionary"); return false },
             }
 
             // check crossing word validities
@@ -415,8 +526,8 @@ impl Board {
                 if !word.is_none() {
                     let word = word.unwrap();
                     match self.word_list.binary_search(&word) {
-                        Ok(pos) => println!("{word} accepted"),
-                        Err(E) => {println!("{word} not found in dictionary"); return false },
+                        Ok(_pos) => println!("{word} accepted"),
+                        Err(_e) => {println!("{word} not found in dictionary"); return false },
                     }
                 }
             }
@@ -424,8 +535,8 @@ impl Board {
         } else if const_col {
             let main_word = self.get_word_down(tile1_row, tile1_col).unwrap();
             match self.word_list.binary_search(&main_word) {
-                Ok(word) => println!("{main_word} accepted"),
-                Err(E) => {println!("{main_word} not found in dictionary"); return false },
+                Ok(_word) => println!("{main_word} accepted"),
+                Err(_e) => {println!("{main_word} not found in dictionary"); return false },
             }
 
             // check crossing word validities
@@ -434,10 +545,9 @@ impl Board {
 
                 if !word.is_none() {
                     let word = word.unwrap();
-                    println!("Checking word {word}");
                     match self.word_list.binary_search(&word) {
-                        Ok(pos) => println!("{word} accepted"),
-                        Err(E) => {println!("{word} not found in dictionary"); return false },
+                        Ok(_pos) => println!("{word} accepted"),
+                        Err(_e) => {println!("{word} not found in dictionary"); return false },
                     }
                 }
             }
@@ -469,8 +579,6 @@ impl Board {
             }
         }
         self.staged_spaces.clear();
-
-        println!("Neighbor list: {:?}", self.neighbors);
 
         score
     }
@@ -594,8 +702,6 @@ impl Board {
             let tile_val = score_letter(self.board[space.0][space.1].tile);
             score += self.board[space.0][space.1].letter_mult * tile_val;
 
-            println!("{} is worth {} for a running score of {}", self.board[space.0][space.1].tile, tile_val, score);
-
             let cross_score;
             if across {
                 cross_score = self.score_down(space.0, space.1);
@@ -614,7 +720,6 @@ impl Board {
             let rightmost = self.get_rightmost_col(origin.0, origin.1).unwrap();
 
             for curr_col in leftmost..=rightmost {
-                println!("Scoring {} {}", origin.0, curr_col);
                 score += self.board[origin.0][curr_col].val;
             }
         } else {
@@ -623,15 +728,12 @@ impl Board {
             let downmost = self.get_downmost_row(origin.0, origin.1).unwrap();
 
             for curr_row in upmost..=downmost {
-                println!("Scoring {} {}", curr_row, origin.1);
                 score += self.board[curr_row][origin.1].val;
             }
         }
 
         score *= word_mult;
         score += cross_score_sum;
-
-        println!("cross_score_sum == {}", cross_score_sum);
 
         if count >= 7 {
             score += 50;
@@ -644,8 +746,6 @@ impl Board {
         let start_col = self.get_leftmost_col(row, col).unwrap();
         let end_col = self.get_rightmost_col(row, col).unwrap();
         
-        println!("{start_col} {end_col}");
-
         if start_col == end_col {
             return 0;
         }
@@ -716,6 +816,14 @@ impl Board {
         (min, max)
     }
 
+    pub fn unstage_to_rack(&mut self, rack: &mut Rack) {
+        for space in &self.staged_spaces {
+            rack.add_tile(self.board[space.0][space.1].tile);
+            self.board[space.0][space.1].tile = '-';
+        }
+        self.staged_spaces.clear();        
+    }
+
     pub fn unstage(&mut self) {
         for space in &self.staged_spaces {
             self.board[space.0][space.1].tile = '-';
@@ -725,7 +833,11 @@ impl Board {
 
     pub fn show(&self) {
         let mut result = String::new();
+        let mut  count = 0;
+        write!(&mut result, "   00 01 02 03 04 05 06 07 08 09 10 11 12 13 14\n").unwrap();
         for row in &self.board {
+            write!(&mut result, "{:02} ", count).unwrap();
+            count += 1;
             for space in row {
                 if space.tile != '-' {
                     write!(&mut result, "{}  ", space.tile).unwrap();
@@ -750,11 +862,11 @@ impl Board {
         }
 
         for c in &self.staged_spaces {
-            let row = c.0;
-            let col = 3*c.1 + 1;
+            let row = c.0 + 1;
+            let col = 3*c.1 + 3;
 
             unsafe { // TODO: Make this safe later
-                result.as_mut_vec()[row*46 + col] = b'+';
+                result.as_mut_vec()[row*49 + col] = b'+';
             }
         }
 
@@ -805,6 +917,64 @@ impl Board {
             }
             else {
                 self.put_tile(c, curr_row, col);
+            }
+            curr_row += 1;
+        }
+    }
+    pub fn write_across_from_rack(&mut self, rack: &mut Rack, word: String, row: usize, col: usize) {
+        if row > 14 || col > 14 { // usize means no need for a lower bounds check
+            println!("Cannot write to ({row}, {col}). Cout of bounds.");
+            return;
+        }
+
+        let mut curr_col = col;
+        for c in word.to_ascii_uppercase().chars() {
+            if curr_col > 14 {
+                println!("Cannot write {word} to ({row}, {col}). Out of bounds.");
+                return;
+            }
+            if self.board[row][curr_col].tile != '-' {
+                if self.board[row][curr_col].tile != c.to_ascii_uppercase() {
+                    println!("Cannot write {word} to ({row}, {col})");
+                    return;
+                }
+            }
+            else if !rack.has_tile(c) {
+                println!("Cannot write {word}. Tile {c} not in rack.");
+                return;
+            }
+            else {
+                self.put_tile(c, row, curr_col);
+                rack.use_tile(c);
+            }
+            curr_col += 1;
+        }
+    }
+
+    pub fn write_down_from_rack(&mut self, rack: &mut Rack, word: String, row: usize, col: usize) {
+        if row > 14 || col > 14 {
+            println!("Cannot write to ({row}, {col}). Out of bounds.");
+            return;
+        }
+        
+        let mut curr_row = row;
+        for c in word.to_ascii_uppercase().chars() {
+            if curr_row > 14 {
+                println!("Cannot write {word} to ({row}, {col}. Out of bounds.");
+                return;
+            }
+            if self.board[curr_row][col].tile != '-' {
+                if self.board[curr_row][col].tile != c.to_ascii_uppercase() {
+                    println!("Cannot write ({word} {col})");
+                }
+            }
+            else if !rack.has_tile(c) {
+                println!("Cannot write {word}. Tile {c} not in rack.");
+                return;
+            }
+            else {
+                self.put_tile(c, curr_row, col);
+                rack.use_tile(c);
             }
             curr_row += 1;
         }

@@ -1,14 +1,10 @@
-use std::fs::File;
-use std::path::Path;
-use std::io::{self, BufRead};
-use std::time::Instant;
-use words::Bag;
-use words::Board;
+use words::{Bag, Board, Rack};
+use std::io;
 
 fn main() -> io::Result<()>{
 
     
-    run();
+    let _ = run();
 
     // let mut board = Board::new();
 
@@ -32,30 +28,25 @@ fn main() -> io::Result<()>{
     Ok(())
 }
 
-fn read_word_list<P>(filename: P) -> io::Result<Vec<String>> where P: AsRef<Path>{
-    let file: File = File::open(filename)?;
-    let lines = io::BufReader::new(file).lines();
-    let mut word_list = Vec::new();
-
-    for line in lines {
-        word_list.push(line?);
-    }
-
-    Ok(word_list)
-}
-
 fn run() -> io::Result<()> {
     use std::io::{stdin,stdout,Write};
 
 
     let mut board = Board::new("dict.txt".to_string());
+    let mut rack = Rack::new();
+    let mut bag = Bag::new();
+    rack.draw(&mut bag);
 
+    let mut score = 0;
+    
     println!("New scrabble game!");
     board.show();
+    rack.show();
+    println!("There are {} tiles in the bag.", bag.size());
+    println!("Score: {score}");
     loop {
-        let mut s=String::new();
         print!("> ");
-
+        let mut s=String::new();
         let _=stdout().flush();
         stdin().read_line(&mut s).expect("Did not enter a correct string");
         if let Some('\n')=s.chars().next_back() {
@@ -65,62 +56,140 @@ fn run() -> io::Result<()> {
             s.pop();
         }
 
-        if s == "show" {
+        let mut iter = s.split_whitespace();
+        let cmd = iter.next().expect("First iteration should always exist.");
+
+        if cmd == "show" {
             board.show();
+            rack.show();
+            println!("There are {} tiles in the bag.", bag.size());
+            println!("Score: {score}");
         }
-        else if s.starts_with("put") {
-            let mut iter = s.split_whitespace();
-            let cmd = iter.next().expect("first iteration should exist");
-            if cmd != "put" {
+        else if cmd == "put" {
+            let tile = get_char(&mut iter);
+            if tile.is_none() {
                 println!("Invalid command. Please try again.");
                 continue;
             }
-
-            let tile = iter.next().unwrap();
-            let row: usize = iter.next().unwrap().parse().unwrap();
-            let col: usize = iter.next().unwrap().parse().unwrap();
-
-            board.put_tile(tile.chars().nth(0).unwrap(), row, col);
-        }
-        else if s.starts_with("wa") {
-            let mut iter = s.split_whitespace();
-            let cmd = iter.next().expect("first iteration should exist");
-            if cmd != "wa" {
+            let tile = tile.unwrap();
+            let row = get_usize(&mut iter);
+            if row.is_none() {
                 println!("Invalid command. Please try again.");
                 continue;
             }
-
-            let word = iter.next().unwrap();
-            let row: usize = iter.next().unwrap().parse().unwrap();
-            let col: usize = iter.next().unwrap().parse().unwrap();
-
-            board.write_across(word.to_string(), row, col);
-        }
-        else if s.starts_with("wd") {
-            let mut iter = s.split_whitespace();
-            let cmd = iter.next().expect("first iteration should exist");
-            if cmd != "wd" {
+            let row = row.unwrap();
+            let col = get_usize(&mut iter);
+            if col.is_none() {
                 println!("Invalid command. Please try again.");
                 continue;
             }
+            let col = col.unwrap();
 
-            let word = iter.next().unwrap();
-            let row: usize = iter.next().unwrap().parse().unwrap();
-            let col: usize = iter.next().unwrap().parse().unwrap();
-
-            board.write_down(word.to_string(), row, col);
+            board.put_tile_from_rack(&mut rack, tile, row, col);
         }
-        else if s == "exit" {
+        else if cmd == "wa" {
+            let word = get_arg(&mut iter);
+            if word.is_none() {
+                println!("Invalid command. Please try again.");
+                continue;
+            }
+            let word = word.unwrap();
+            let row = get_usize(&mut iter);
+            if row.is_none() {
+                println!("Invalid command. Please try again.");
+                continue;
+            }
+            let row = row.unwrap();
+            let col = get_usize(&mut iter);
+            if col.is_none() {
+                println!("Invalid command. Please try again.");
+                continue;
+            }
+            let col = col.unwrap();
+
+            board.write_across_from_rack(&mut rack, word, row, col);
+        }
+        else if cmd == "wd" {
+            let word = get_arg(&mut iter);
+            if word.is_none() {
+                println!("Invalid command. Please try again.");
+                continue;
+            }
+            let word = word.unwrap();
+            let row = get_usize(&mut iter);
+            if row.is_none() {
+                println!("Invalid command. Please try again.");
+                continue;
+            }
+            let row = row.unwrap();
+            let col = get_usize(&mut iter);
+            if col.is_none() {
+                println!("Invalid command. Please try again.");
+                continue;
+            }
+            let col = col.unwrap();
+
+            board.write_down_from_rack(&mut rack, word, row, col);
+        }
+        else if cmd == "swap" {
+            let mut to_swap = Vec::new();
+            while let Some(c) = get_char(&mut iter) {
+                to_swap.push(c.to_ascii_uppercase());
+            }
+            rack.swap(&mut bag, to_swap);
+        }
+        else if cmd == "exit" {
             return Ok(());
         }
-        else if s == "submit" {
-            board.submit();
+        else if cmd == "submit" {
+            let score_delta = board.submit();
+            
+            if score_delta == 0 {
+                println!("Submission not accepted. Try again.");
+                board.unstage_to_rack(&mut rack);
+            }
+            else {
+                score += score_delta;
+                rack.draw(&mut bag);
+
+                board.show();
+                rack.show();
+                println!("There are {} tiles in the bag.", bag.size());
+                println!("Score: {score}");
+            }
         }
-        else if s == "unstage" {
-            board.unstage();
+        else if cmd == "unstage" {
+            board.unstage_to_rack(&mut rack);
+            board.show();
+            rack.show();
         }
         else {
             println!("Invalid command. Try again.");
         }
+    }
+}
+
+fn get_arg<'a>(iter: &mut impl Iterator<Item = &'a str>) -> Option<String> {
+    match iter.next() {
+        Some(s) => Some(s.to_string()),
+        None => None
+    }
+}
+
+fn get_char<'a>(iter: &mut impl Iterator<Item = &'a str>) -> Option<char> {
+    let s = get_arg(iter);
+    match s {
+        Some(t) => {
+            if t.len() != 1 { None } else { Some(t.chars().nth(0).unwrap()) } 
+        }
+        None => None,
+    }
+}
+
+fn get_usize<'a>(iter: &mut impl Iterator<Item = &'a str>) -> Option<usize> {
+    let s = get_arg(iter);
+    match s {
+        Some(t) => t.parse().ok(),
+        None => None,
     }
 }
