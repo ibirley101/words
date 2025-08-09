@@ -1,4 +1,5 @@
-use words::{Bag, Board, Rack};
+use words::game::{Bag, Board, Rack};
+use words::player;
 use std::io;
 
 fn main() -> io::Result<()>{
@@ -44,6 +45,9 @@ fn run() -> io::Result<()> {
     rack.show();
     println!("There are {} tiles in the bag.", bag.size());
     println!("Score: {score}");
+
+    // player::play_greediest_word(&mut board, &mut rack);
+
     loop {
         print!("> ");
         let mut s=String::new();
