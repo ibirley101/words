@@ -33,7 +33,7 @@ fn run() -> io::Result<()> {
     use std::io::{stdin,stdout,Write};
 
 
-    let mut board = Board::new("dict.txt".to_string());
+    let mut board = Board::new("dict.txt".to_string(), "partials_dict.txt".to_string());
     let mut rack = Rack::new();
     let mut rack2 = Rack::new();
     let mut bag = Bag::new();

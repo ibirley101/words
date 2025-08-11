@@ -44,7 +44,6 @@ fn find_words_across(board: &mut Board, tiles: &Vec<char>, row: usize, col: usiz
             best.1 = score;
             best.2 = row;
             best.3 = board.get_leftmost_col(row, col).unwrap();
-            println!("Found word {substr} with score {score}");
         }
     }
 
@@ -83,7 +82,6 @@ fn find_words_down(board: &mut Board, tiles: &Vec<char>, row: usize, col: usize,
             best.1 = score;
             best.2 = board.get_upmost_row(row, col).unwrap();
             best.3 = col;
-            println!("Found word {substr} with score {score}");
         }
     }
 

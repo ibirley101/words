@@ -3,7 +3,7 @@ use rand::seq::SliceRandom;
 use std::fs::File;
 use std::path::Path;
 use std::io::{self, BufRead};
-use std::collections::{HashSet, HashMap, VecDeque};
+use std::collections::{HashSet, VecDeque};
 
 const LETTER_SCORES: [i32; 26] = [1, 3, 3, 2, 1, 4, 2, 4, 1, 8, 5, 1, 3, 1, 1, 3, 10, 1, 1, 1, 1, 4, 4, 8, 4, 10];
 
@@ -203,8 +203,8 @@ pub struct Board {
     board: Vec<Vec<Space>>,
     staged_spaces: Vec<(usize, usize)>,
     word_list: Vec<String>,
+    partials_list: Vec<String>,
     neighbors: HashSet<(usize, usize)>,
-    promising_memo: HashMap<String, bool>,
 }
 
 impl Board {
@@ -221,22 +221,17 @@ impl Board {
     }
     
     pub fn substr_promising(&mut self, substring: &String) -> bool {
-        if self.promising_memo.contains_key(substring) {
-            return *self.promising_memo.get(substring).unwrap();
+        match self.partials_list.binary_search(substring) {
+            Ok(_n) => { return true; }
+            Err(n) => { if self.partials_list[n].starts_with(substring) { return true; }}
         }
-        for word in &self.word_list {
-            if word.contains(substring) {
-                self.promising_memo.insert(substring.into(), true);
-                return true;
-            }
-        }
-        self.promising_memo.insert(substring.into(), false);
         false
     }
 
-    pub fn new(dict_path: String ) -> Self {
+    pub fn new(dict_path: String, partials_path: String) -> Self {
         let word_list = Board::read_word_list(dict_path).unwrap();
-        
+        let partials_list = Board::read_word_list(partials_path).unwrap();
+
         let id = Space{tile: '-', letter_mult: 1, word_mult: 1, val: 0};
         let dl = Space{tile: '-', letter_mult: 2, word_mult: 1, val: 0};
         let tl = Space{tile: '-', letter_mult: 3, word_mult: 1, val: 0};
@@ -264,7 +259,7 @@ impl Board {
         let mut neighbors = HashSet::new();
         neighbors.insert((7, 7));
 
-        Board { board: board, staged_spaces: Vec::new(), word_list: word_list, neighbors: neighbors, promising_memo: HashMap::new() }
+        Board { board: board, staged_spaces: Vec::new(), word_list: word_list, partials_list: partials_list, neighbors: neighbors }
     }
 
     pub fn get_neighbors(&self) -> Vec<(usize, usize)> {
