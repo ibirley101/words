@@ -35,20 +35,60 @@ fn run() -> io::Result<()> {
 
     let mut board = Board::new("dict.txt".to_string());
     let mut rack = Rack::new();
+    let mut rack2 = Rack::new();
     let mut bag = Bag::new();
-    rack.draw(&mut bag);
 
     let mut score = 0;
-    
+    let mut score2 = 0;
+
     println!("New scrabble game!");
     board.show();
     rack.show();
     println!("There are {} tiles in the bag.", bag.size());
     println!("Score: {score}");
 
-    // player::play_greediest_word(&mut board, &mut rack);
-
+    
+    // return Ok(());
     loop {
+        rack.draw(&mut bag);
+        rack2.draw(&mut bag);
+        board.show();
+        rack.show();
+        rack2.show();
+        println!("Player 1 Score: {score}\nPlayer 2 Score: {score2}");
+        let (best_word, _, row, col, across) = player::find_greediest_word(&mut board, &mut rack);
+        if across {
+            board.write_across_from_rack(&mut rack, best_word, row, col);
+        } else {
+            board.write_down_from_rack(&mut rack, best_word, row, col);
+        }
+        board.show();
+        let score_delta = board.submit();
+        if score_delta == 0 {
+            break Ok(());
+        }
+        score += score_delta;
+        if bag.is_empty() {
+            break Ok(());
+        }
+
+        let (best_word, _, row, col, across) = player::find_greediest_word(&mut board, &mut rack2);
+        if across {
+            board.write_across_from_rack(&mut rack2, best_word, row, col);
+        } else {
+            board.write_down_from_rack(&mut rack2, best_word, row, col);
+        }
+        board.show();
+        let score_delta = board.submit();
+        if score_delta == 0 {
+            break Ok(());
+        }
+        score2 += score_delta;
+        if bag.is_empty() {
+            break Ok(());
+        }
+
+        continue;
         print!("> ");
         let mut s=String::new();
         let _=stdout().flush();
@@ -59,10 +99,10 @@ fn run() -> io::Result<()> {
         if let Some('\r')=s.chars().next_back() {
             s.pop();
         }
-
+        
         let mut iter = s.split_whitespace();
         let cmd = iter.next().expect("First iteration should always exist.");
-
+        
         if cmd == "show" {
             board.show();
             rack.show();

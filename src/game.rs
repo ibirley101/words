@@ -3,7 +3,7 @@ use rand::seq::SliceRandom;
 use std::fs::File;
 use std::path::Path;
 use std::io::{self, BufRead};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashSet, HashMap, VecDeque};
 
 const LETTER_SCORES: [i32; 26] = [1, 3, 3, 2, 1, 4, 2, 4, 1, 8, 5, 1, 3, 1, 1, 3, 10, 1, 1, 1, 1, 4, 4, 8, 4, 10];
 
@@ -79,6 +79,10 @@ impl Bag {
     pub fn size(&self) -> usize {
         self.tiles.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.tiles.is_empty()
+    }
 }
 
 #[derive(Debug)]
@@ -113,6 +117,18 @@ impl Rack {
         }
     }
 
+    pub fn get_tiles_vec(&self) -> Vec<char> {
+        let mut result = Vec::new();
+        for elt in 'A'..='Z' {
+            for _ in 0..self.tiles[elt as usize] {
+                result.push(elt);
+            }
+        }
+        for _ in 0..self.tiles['*' as usize] {
+            result.push('*');
+        }
+        result
+    }
 
     pub fn get_tiles_vecdeque(&self) -> VecDeque<char> {
         let mut result = VecDeque::new();
@@ -188,6 +204,7 @@ pub struct Board {
     staged_spaces: Vec<(usize, usize)>,
     word_list: Vec<String>,
     neighbors: HashSet<(usize, usize)>,
+    promising_memo: HashMap<String, bool>,
 }
 
 impl Board {
@@ -203,12 +220,17 @@ impl Board {
         Ok(word_list)
     }
     
-    pub fn substr_promising(&self, substring: &String) -> bool {
+    pub fn substr_promising(&mut self, substring: &String) -> bool {
+        if self.promising_memo.contains_key(substring) {
+            return *self.promising_memo.get(substring).unwrap();
+        }
         for word in &self.word_list {
             if word.contains(substring) {
+                self.promising_memo.insert(substring.into(), true);
                 return true;
             }
         }
+        self.promising_memo.insert(substring.into(), false);
         false
     }
 
@@ -242,7 +264,7 @@ impl Board {
         let mut neighbors = HashSet::new();
         neighbors.insert((7, 7));
 
-        Board { board: board, staged_spaces: Vec::new(), word_list: word_list, neighbors: neighbors }
+        Board { board: board, staged_spaces: Vec::new(), word_list: word_list, neighbors: neighbors, promising_memo: HashMap::new() }
     }
 
     pub fn get_neighbors(&self) -> Vec<(usize, usize)> {
@@ -277,6 +299,21 @@ impl Board {
         self.board[row][col].set_char(tile);
     }
 
+    pub fn remove_tile(&mut self, row: usize, col: usize) {
+        let mut i = 0;
+        while i < self.staged_spaces.len() {
+            if self.staged_spaces[i] == (row, col) {
+                self.staged_spaces.remove(i);
+                self.board[row][col].tile = '-';
+                break;
+            }
+            i += 1;
+        }
+    }
+
+    pub fn get_tile(&self, row: usize, col: usize) -> char {
+        self.board[row][col].tile
+    }
 
     pub fn get_word_down(&self, row: usize, col: usize) -> Option<String> {
         // given a space in board, return the up/down word that it belongs to, if one exists.
