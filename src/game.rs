@@ -202,32 +202,12 @@ impl Rack {
 pub struct Board {
     board: Vec<Vec<Space>>,
     staged_spaces: Vec<(usize, usize)>,
+    neighbors: HashSet<(usize, usize)>,
     word_list: Vec<String>,
     partials_list: Vec<String>,
-    neighbors: HashSet<(usize, usize)>,
 }
 
 impl Board {
-    fn read_word_list<P>(filename: P) -> io::Result<Vec<String>> where P: AsRef<Path>{
-        let file: File = File::open(filename)?;
-        let lines = io::BufReader::new(file).lines();
-        let mut word_list = Vec::new();
-
-        for line in lines {
-            word_list.push(line?);
-        }
-
-        Ok(word_list)
-    }
-    
-    pub fn substr_promising(&mut self, substring: &String) -> bool {
-        match self.partials_list.binary_search(substring) {
-            Ok(_n) => { return true; }
-            Err(n) => { if self.partials_list[n].starts_with(substring) { return true; }}
-        }
-        false
-    }
-
     pub fn new(dict_path: String, partials_path: String) -> Self {
         let word_list = Board::read_word_list(dict_path).unwrap();
         let partials_list = Board::read_word_list(partials_path).unwrap();
@@ -260,6 +240,26 @@ impl Board {
         neighbors.insert((7, 7));
 
         Board { board: board, staged_spaces: Vec::new(), word_list: word_list, partials_list: partials_list, neighbors: neighbors }
+    }
+
+    fn read_word_list<P>(filename: P) -> io::Result<Vec<String>> where P: AsRef<Path>{
+        let file: File = File::open(filename)?;
+        let lines = io::BufReader::new(file).lines();
+        let mut word_list = Vec::new();
+
+        for line in lines {
+            word_list.push(line?);
+        }
+
+        Ok(word_list)
+    }
+    
+    pub fn substr_promising(&mut self, substring: &String) -> bool {
+        match self.partials_list.binary_search(substring) {
+            Ok(_n) => { return true; }
+            Err(n) => { if self.partials_list[n].starts_with(substring) { return true; }}
+        }
+        false
     }
 
     pub fn get_neighbors(&self) -> Vec<(usize, usize)> {
@@ -579,7 +579,6 @@ impl Board {
                     return false;
                 }
             }
-
         }
         else if const_col {
             let upmost = self.get_upmost_row(tile1_row, tile1_col).unwrap();
