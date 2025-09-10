@@ -175,7 +175,7 @@ impl Rack {
         for _ in 0..self.tiles['*' as usize] {
             result.push('*');
         }
-        println!("{:?}", result);
+        print!("Rack: ");
         for elt in result {
             print!("{} ", elt);
         }

@@ -65,11 +65,11 @@ fn run() -> io::Result<()> {
         board.show();
         let score_delta = board.submit();
         if score_delta == 0 {
-            break Ok(());
+            break;
         }
         score += score_delta;
         if bag.is_empty() {
-            break Ok(());
+            break;
         }
 
         let (best_word, _, row, col, across) = player::find_greediest_word(&mut board, &mut rack2);
@@ -81,11 +81,11 @@ fn run() -> io::Result<()> {
         board.show();
         let score_delta = board.submit();
         if score_delta == 0 {
-            break Ok(());
+            break;
         }
         score2 += score_delta;
         if bag.is_empty() {
-            break Ok(());
+            break;
         }
 
         continue;
@@ -211,6 +211,11 @@ fn run() -> io::Result<()> {
             println!("Invalid command. Try again.");
         }
     }
+
+    println!("Game finsihed!");
+    println!("Player 1 Score: {score}\nPlayer 2 Score: {score2}");
+
+    Ok(())
 }
 
 fn get_arg<'a>(iter: &mut impl Iterator<Item = &'a str>) -> Option<String> {
