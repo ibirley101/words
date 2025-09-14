@@ -1,21 +1,21 @@
 use crate::game::{Bag, Board, Rack};
 use std::io::{stdin, stdout,Write};
 
-pub struct Player<'a> {
-    rack: &'a mut Rack,
+pub struct Player {
+    rack: Rack,
     id: i32,
     score: i32,
     rackless: bool,
     cpu: bool,
 }
 
-impl<'a> Player<'a> {
-    pub fn new(rack: &'a mut Rack, id: i32, rackless: bool, cpu: bool) -> Self {
+impl Player {
+    pub fn new(id: i32, rackless: bool, cpu: bool) -> Self {
         if rackless && cpu {
             panic!("CPU cannot be rackless.");
         }
 
-        Player{ rack, id, score: 0, rackless, cpu }
+        Player{ rack: Rack::new(), id, score: 0, rackless, cpu }
     }
 
     pub fn play_turn(&mut self, board: &mut Board, bag: &mut Bag) -> i32 {
@@ -36,11 +36,11 @@ impl<'a> Player<'a> {
     }
 
     fn play_turn_cpu(&mut self, board: &mut Board, bag: &mut Bag) -> i32 {
-        let (word, _, row, col, across) = find_greediest_word(board, self.rack);
+        let (word, _, row, col, across) = find_greediest_word(board, &mut self.rack);
         if across {
-            board.write_across_from_rack(self.rack, word, row, col);
+            board.write_across_from_rack(&mut self.rack, word, row, col);
         } else {
-            board.write_down_from_rack(self.rack, word, row, col);
+            board.write_down_from_rack(&mut self.rack, word, row, col);
         }
         let score_delta = board.submit();
         self.score += score_delta;
@@ -161,7 +161,7 @@ impl<'a> Player<'a> {
                 }
             }
             else if cmd == "unstage" {
-                board.unstage_to_rack(self.rack);
+                board.unstage_to_rack(&mut self.rack);
                 board.show();
                 self.rack.show();
             }
