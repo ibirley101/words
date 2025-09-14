@@ -1084,7 +1084,7 @@ mod tests {
 
     #[test]
     fn test_hello() {
-        let mut board = Board::new("dict.txt".to_string());
+        let mut board = Board::new("dict.txt".to_string(), "partials_dict.txt".to_string());
 
         board.put_tile('H', 7, 7);
         board.put_tile('E', 7, 8);
@@ -1100,7 +1100,7 @@ mod tests {
         // https://www.cross-tables.com/annotated.php?u=54918#3#
 
         let mut score;
-        let mut board = Board::new("dict.txt".to_string());
+        let mut board = Board::new("dict.txt".to_string(), "partials_dict.txt".to_string());
 
         board.put_tile('J', 6, 7);
         board.put_tile('U', 7, 7);
@@ -1183,7 +1183,7 @@ mod tests {
         // https://www.cross-tables.com/annotated.php?u=54917#3#
 
         let mut score;
-        let mut board = Board::new("dict.txt".to_string());
+        let mut board = Board::new("dict.txt".to_string(), "partials_dict.txt".to_string());
 
         board.put_tile('H', 6, 7);
         board.put_tile('I', 7, 7);
@@ -1389,7 +1389,7 @@ mod tests {
     fn test_fuzz_3() {
         // https://www.cross-tables.com/annotated.php?u=55086#1#
         let mut score;
-        let mut board = Board::new("dict.txt".to_string());
+        let mut board = Board::new("dict.txt".to_string(), "partials_dict.txt".to_string());
 
         board.write_across(String::from("leavy"), 7, 7);
         score = board.submit();
@@ -1407,7 +1407,7 @@ mod tests {
 
     #[test]
     fn test_contiguity() {
-        let mut board = Board::new("dict.txt".to_string());
+        let mut board = Board::new("dict.txt".to_string(), "partials_dict.txt".to_string());
 
         board.write_across(String::from("leave"), 7, 7);
         assert!(board.submit() > 0);

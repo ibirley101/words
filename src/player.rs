@@ -1,8 +1,202 @@
-use std::collections::VecDeque;
-use std::collections::HashSet;
-use std::hash::Hash;
-
 use crate::game::{Bag, Board, Rack};
+use std::io::{stdin, stdout,Write};
+
+pub struct Player<'a> {
+    rack: &'a mut Rack,
+    id: i32,
+    score: i32,
+    rackless: bool,
+    cpu: bool,
+}
+
+impl<'a> Player<'a> {
+    pub fn new(rack: &'a mut Rack, id: i32, rackless: bool, cpu: bool) -> Self {
+        if rackless && cpu {
+            panic!("CPU cannot be rackless.");
+        }
+
+        Player{ rack, id, score: 0, rackless, cpu }
+    }
+
+    pub fn play_turn(&mut self, board: &mut Board, bag: &mut Bag) -> i32 {
+        println!("Player {}'s turn.", self.id);
+        self.rack.draw(bag);
+        let score;
+        if self.cpu {
+            score = self.play_turn_cpu(board, bag)
+        }
+        else {
+            score = match self.play_turn_player(board, bag) {
+                Some(n) => n,
+                None => 0, // swap
+            }
+        }
+        println!("Score: {}\n", self.score);
+        score
+    }
+
+    fn play_turn_cpu(&mut self, board: &mut Board, bag: &mut Bag) -> i32 {
+        let (word, _, row, col, across) = find_greediest_word(board, self.rack);
+        if across {
+            board.write_across_from_rack(self.rack, word, row, col);
+        } else {
+            board.write_down_from_rack(self.rack, word, row, col);
+        }
+        let score_delta = board.submit();
+        self.score += score_delta;
+        score_delta
+    }
+
+    fn play_turn_player(&mut self, board: &mut Board, bag: &mut Bag) -> Option<i32> {
+        loop {
+            print!("> ");
+            let mut s=String::new();
+            let _=stdout().flush();
+            stdin().read_line(&mut s).expect("Did not enter a correct string");
+            if let Some('\n')=s.chars().next_back() {
+                s.pop();
+            }
+            if let Some('\r')=s.chars().next_back() {
+                s.pop();
+            }
+            
+            let mut iter = s.split_whitespace();
+            let cmd = iter.next().expect("First iteration should always exist.");
+            
+            if cmd == "show" {
+                board.show();
+                self.rack.show();
+                println!("There are {} tiles in the bag.", bag.size());
+                println!("Score: {}", self.score);
+            }
+            else if cmd == "put" {
+                let tile = get_char(&mut iter);
+                if tile.is_none() {
+                    println!("Invalid command. Please try again.");
+                    continue;
+                }
+                let tile = tile.unwrap();
+                let row = get_usize(&mut iter);
+                if row.is_none() {
+                    println!("Invalid command. Please try again.");
+                    continue;
+                }
+                let row = row.unwrap();
+                let col = get_usize(&mut iter);
+                if col.is_none() {
+                    println!("Invalid command. Please try again.");
+                    continue;
+                }
+                let col = col.unwrap();
+
+                board.put_tile_from_rack(&mut self.rack, tile, row, col);
+            }
+            else if cmd == "wa" {
+                let word = get_arg(&mut iter);
+                if word.is_none() {
+                    println!("Invalid command. Please try again.");
+                    continue;
+                }
+                let word = word.unwrap();
+                let row = get_usize(&mut iter);
+                if row.is_none() {
+                    println!("Invalid command. Please try again.");
+                    continue;
+                }
+                let row = row.unwrap();
+                let col = get_usize(&mut iter);
+                if col.is_none() {
+                    println!("Invalid command. Please try again.");
+                    continue;
+                }
+                let col = col.unwrap();
+
+                board.write_across_from_rack(&mut self.rack, word, row, col);
+            }
+            else if cmd == "wd" {
+                let word = get_arg(&mut iter);
+                if word.is_none() {
+                    println!("Invalid command. Please try again.");
+                    continue;
+                }
+                let word = word.unwrap();
+                let row = get_usize(&mut iter);
+                if row.is_none() {
+                    println!("Invalid command. Please try again.");
+                    continue;
+                }
+                let row = row.unwrap();
+                let col = get_usize(&mut iter);
+                if col.is_none() {
+                    println!("Invalid command. Please try again.");
+                    continue;
+                }
+                let col = col.unwrap();
+
+                board.write_down_from_rack(&mut self.rack, word, row, col);
+            }
+            else if cmd == "swap" {
+                let mut to_swap = Vec::new();
+                while let Some(c) = get_char(&mut iter) {
+                    to_swap.push(c.to_ascii_uppercase());
+                }
+                self.rack.swap(bag, to_swap);
+                return None;
+            }
+            else if cmd == "submit" {
+                let score_delta = board.submit();
+                
+                if score_delta == 0 {
+                    println!("Submission not accepted. Try again.");
+                    board.unstage_to_rack(&mut self.rack);
+                }
+                else {
+                    self.score += score_delta;
+                    self.rack.draw(bag);
+                    board.show();
+                    self.rack.show();
+                    println!("There are {} tiles in the bag.", bag.size());
+                    println!("Score: {}", self.score);
+                    return Some(score_delta);
+                }
+            }
+            else if cmd == "unstage" {
+                board.unstage_to_rack(self.rack);
+                board.show();
+                self.rack.show();
+            }
+            else {
+                println!("Invalid command. Try again.");
+            }
+        }
+    }
+}
+
+fn get_arg<'a>(iter: &mut impl Iterator<Item = &'a str>) -> Option<String> {
+    match iter.next() {
+        Some(s) => Some(s.to_string()),
+        None => None
+    }
+}
+
+fn get_char<'a>(iter: &mut impl Iterator<Item = &'a str>) -> Option<char> {
+    let s = get_arg(iter);
+    match s {
+        Some(t) => {
+            if t.len() != 1 { None } else { Some(t.chars().nth(0).unwrap()) } 
+        }
+        None => None,
+    }
+}
+
+fn get_usize<'a>(iter: &mut impl Iterator<Item = &'a str>) -> Option<usize> {
+    let s = get_arg(iter);
+    match s {
+        Some(t) => t.parse().ok(),
+        None => None,
+    }
+}
+
 
 pub fn find_greediest_word(board: &mut Board, rack: &mut Rack) -> (String, i32, usize, usize, bool) {
     // to play the greediest word, we will need to search all of the available
