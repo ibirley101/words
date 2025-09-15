@@ -107,6 +107,10 @@ impl Rack {
         self.size -= 1;
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
+
     pub fn draw(&mut self, bag: &mut Bag) {
         while self.size < 7 {
             let tile = bag.tiles.pop();
