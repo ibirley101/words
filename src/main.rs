@@ -16,10 +16,10 @@ enum PlayerType {
 #[command(version, about, long_about = None)]
 struct Args {
     // number of human players
-    #[arg(value_enum, default_value_t = PlayerType::Human)]
+    #[arg(value_enum, default_value_t = PlayerType::None)]
     player1: PlayerType,
 
-    #[arg(value_enum, default_value_t = PlayerType::CPU)]
+    #[arg(value_enum, default_value_t = PlayerType::None)]
     player2: PlayerType,
 
     #[arg(value_enum, default_value_t = PlayerType::None)]
@@ -27,10 +27,6 @@ struct Args {
 
     #[arg(value_enum, default_value_t = PlayerType::None)]
     player4: PlayerType,
-
-    // whether human players have to play from a rack
-    #[arg(short, long, default_value_t = false)]
-    rackless: bool,
 }
 
 fn main() -> io::Result<()> {
