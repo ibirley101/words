@@ -280,7 +280,12 @@ impl<'a> Shell<'a> {
     }
 
     fn exec_unstage(&mut self) -> ShellStatus {
-        self.board.unstage_to_rack(&mut self.player.rack);
+        if self.player.rackless {
+            self.board.unstage();
+        }
+        else {
+            self.board.unstage_to_rack(&mut self.player.rack);
+        }
         ShellStatus::Continue
     }
 
