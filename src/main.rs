@@ -80,8 +80,6 @@ fn run(mut players: Vec<Box<Player>>) -> io::Result<()> {
                 exit(0);
             }
         }
-
-        board.show();
     }
 
     Ok(())
