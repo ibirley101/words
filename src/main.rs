@@ -1,7 +1,8 @@
 use clap::Parser;
 use std::io;
+use std::process::exit;
 use words::game::{Bag, Board};
-use words::player::Player;
+use words::player::{TurnResult, Player};
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum PlayerType {
@@ -74,7 +75,10 @@ fn run(mut players: Vec<Box<Player>>) -> io::Result<()> {
 
     while !bag.is_empty() {
         for player in &mut players {
-            player.play_turn(&mut board, &mut bag);
+            let result = player.play_turn(&mut board, &mut bag);
+            if matches!(result, TurnResult::Exit) {
+                exit(0);
+            }
         }
 
         board.show();

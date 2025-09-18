@@ -1,6 +1,12 @@
 use crate::game::{Bag, Board, Rack};
 use std::io::{Write, stdin, stdout};
 
+pub enum TurnResult {
+    Score(i32),
+    Swap,
+    Exit,   
+}
+
 pub struct Player {
     rack: Rack,
     id: i32,
@@ -24,7 +30,7 @@ impl Player {
         }
     }
 
-    pub fn play_turn(&mut self, board: &mut Board, bag: &mut Bag) -> i32 {
+    pub fn play_turn(&mut self, board: &mut Board, bag: &mut Bag) -> TurnResult {
         println!("Player {}'s turn.", self.id);
         if !self.rackless {
             self.rack.draw(bag);
@@ -32,18 +38,23 @@ impl Player {
 
         let score;
         if self.cpu {
-            score = self.play_turn_cpu(board, bag)
+            score = match self.play_turn_cpu(board, bag) {
+                TurnResult::Score(n) => n,
+                TurnResult::Swap => 0, // swap
+                TurnResult::Exit => return TurnResult::Exit,
+            }
         } else {
             score = match self.play_turn_player(board, bag) {
-                Some(n) => n,
-                None => 0, // swap
+                TurnResult::Score(n) => n,
+                TurnResult::Swap => 0, // swap
+                TurnResult::Exit => return TurnResult::Exit,
             }
         }
         println!("Score: {}\n", self.score);
-        score
+        TurnResult::Score(score)
     }
 
-    fn play_turn_cpu(&mut self, board: &mut Board, bag: &mut Bag) -> i32 {
+    fn play_turn_cpu(&mut self, board: &mut Board, bag: &mut Bag) -> TurnResult {
         let (word, _, row, col, across) = find_greediest_word(board, &mut self.rack);
         if across {
             board.write_across_from_rack(&mut self.rack, word, row, col);
@@ -52,10 +63,11 @@ impl Player {
         }
         let score_delta = board.submit();
         self.score += score_delta;
-        score_delta
+        
+        TurnResult::Score(score_delta)
     }
 
-    fn play_turn_player(&mut self, board: &mut Board, bag: &mut Bag) -> Option<i32> {
+    fn play_turn_player(&mut self, board: &mut Board, bag: &mut Bag) -> TurnResult {
         loop {
             print!("> ");
             let mut s = String::new();
@@ -191,7 +203,7 @@ impl Player {
                     to_swap.push(c.to_ascii_uppercase());
                 }
                 self.rack.swap(bag, to_swap);
-                return None;
+                return TurnResult::Swap;
             } else if cmd == "submit" {
                 let score_delta = board.submit();
 
@@ -205,9 +217,12 @@ impl Player {
                     self.rack.show();
                     println!("There are {} tiles in the bag.", bag.size());
                     println!("Score: {}", self.score);
-                    return Some(score_delta);
+                    return TurnResult::Score(score_delta);
                 }
-            } else if cmd == "unstage" {
+            } else if cmd == "exit" {
+                return TurnResult::Exit;
+            } 
+            else if cmd == "unstage" {
                 board.unstage_to_rack(&mut self.rack);
                 board.show();
                 self.rack.show();
