@@ -82,5 +82,8 @@ fn run(mut players: Vec<Box<Player>>) -> io::Result<()> {
         }
     }
 
+    println!("Game finished!");
+    board.show();
+
     Ok(())
 }

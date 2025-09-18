@@ -1,5 +1,6 @@
 use crate::game::{Bag, Board, Rack};
-use crate::player::{Player, find_greediest_word};
+use crate::greedy::find_greediest_word;
+use crate::player::Player;
 
 enum ShellCommand {
     Exit,
@@ -18,6 +19,7 @@ pub enum ShellStatus {
     Continue,
     Exit,
     Submit(i32),
+    Swap,
     Err,
 }
 
@@ -29,7 +31,11 @@ pub struct Shell<'a> {
 
 impl<'a> Shell<'a> {
     pub fn new(bag: &'a mut Bag, board: &'a mut Board, player: &'a mut Player) -> Self {
-        Shell {bag: bag, board: board, player: player}
+        Shell {
+            bag: bag,
+            board: board,
+            player: player,
+        }
     }
 
     pub fn main_loop(&mut self) -> ShellStatus {
@@ -38,11 +44,12 @@ impl<'a> Shell<'a> {
             let line = self.read_line();
             let cmd = self.parse(line);
             let status = self.execute(cmd);
-            
+
             match status {
                 ShellStatus::Continue => continue,
                 ShellStatus::Exit => return status,
                 ShellStatus::Submit(_) => return status,
+                ShellStatus::Swap => return status,
                 ShellStatus::Err => continue,
             }
         }
@@ -273,17 +280,16 @@ impl<'a> Shell<'a> {
         let swapstr = args.first().expect("Checked that first exists.").chars();
         let mut to_swap = Vec::new();
         for c in swapstr {
-            to_swap.push(c);
+            to_swap.push(c.to_ascii_uppercase());
         }
         self.player.rack.swap(&mut self.bag, to_swap);
-        ShellStatus::Continue
+        ShellStatus::Swap
     }
 
     fn exec_unstage(&mut self) -> ShellStatus {
         if self.player.rackless {
             self.board.unstage();
-        }
-        else {
+        } else {
             self.board.unstage_to_rack(&mut self.player.rack);
         }
         ShellStatus::Continue
@@ -294,7 +300,8 @@ impl<'a> Shell<'a> {
             Some((word, row, col)) => (word, row, col),
             None => return ShellStatus::Err,
         };
-        self.board.write_across_from_rack(&mut self.player.rack, word, row, col);
+        self.board
+            .write_across_from_rack(&mut self.player.rack, word, row, col);
 
         ShellStatus::Continue
     }
@@ -304,7 +311,8 @@ impl<'a> Shell<'a> {
             Some((word, row, col)) => (word, row, col),
             None => return ShellStatus::Err,
         };
-        self.board.write_down_from_rack(&mut self.player.rack, word, row, col);
+        self.board
+            .write_down_from_rack(&mut self.player.rack, word, row, col);
 
         ShellStatus::Continue
     }
