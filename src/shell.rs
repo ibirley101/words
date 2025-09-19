@@ -282,8 +282,13 @@ impl<'a> Shell<'a> {
         for c in swapstr {
             to_swap.push(c.to_ascii_uppercase());
         }
-        self.player.rack.swap(&mut self.bag, to_swap);
-        ShellStatus::Swap
+        
+        if self.player.rack.swap(&mut self.bag, to_swap) {
+            ShellStatus::Swap
+        }
+        else {
+            ShellStatus::Err
+        }
     }
 
     fn exec_unstage(&mut self) -> ShellStatus {

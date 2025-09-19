@@ -147,7 +147,7 @@ impl Rack {
         result
     }
 
-    pub fn swap(&mut self, bag: &mut Bag, tiles: Vec<char>) {
+    pub fn swap(&mut self, bag: &mut Bag, tiles: Vec<char>) -> bool {
         // need to make sure each tile 
         let mut tiles_to_push = Vec::new();
         for tile in tiles {
@@ -156,7 +156,7 @@ impl Rack {
                 for replacement in tiles_to_push {
                     self.add_tile(replacement);
                 }
-                return;
+                return false;
             } else {
                 self.remove_tile(tile);
                 tiles_to_push.push(tile);
@@ -167,6 +167,7 @@ impl Rack {
             bag.add_tile(tile);
         }
         bag.shuffle();
+        true
     }
 
     pub fn show(&self) {
