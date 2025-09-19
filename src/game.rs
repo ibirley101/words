@@ -134,25 +134,10 @@ impl Rack {
         result
     }
 
-    pub fn get_tiles_vecdeque(&self) -> VecDeque<char> {
-        let mut result = VecDeque::new();
-        for elt in 'A'..='Z' {
-            for _ in 0..self.tiles[elt as usize] {
-                result.push_back(elt);
-            }
-        }
-        for _ in 0..self.tiles['*' as usize] {
-            result.push_back('*');
-        }
-        result
-    }
-
     pub fn swap(&mut self, bag: &mut Bag, tiles: Vec<char>) -> bool {
-        // need to make sure each tile 
         let mut tiles_to_push = Vec::new();
         for tile in tiles {
             if self.tiles[tile as usize] == 0 {
-                println!("Can't swap. Rack doesn't have enough of {tile}.");
                 for replacement in tiles_to_push {
                     self.add_tile(replacement);
                 }
@@ -285,10 +270,6 @@ impl Board {
     }
 
     pub fn put_tile(&mut self, tile: char, row: usize, col: usize) {
-        // add logic to keep track of unsubmitted characters, kind of like git staging/committing.
-        // add logic to prevent putting a tile on a filled space
-
-
         if self.board[row][col].tile != '-' {
             return; // not empty
         }
@@ -321,16 +302,15 @@ impl Board {
             return None;
         }
 
-        // get to the beginning of the word
-        let mut start = row;
-        while start > 0 && self.board[start-1][col].tile != '-' {
-            start -= 1;
-        }
-
-        let mut end = row;
-        while end < 14 && self.board[end+1][col].tile != '-' {
-            end += 1;
-        }
+        // get the bounds of the word
+        let start = match self.get_upmost_row(row, col) {
+            Some(n) => n,
+            None => return None,
+        };
+        let end = match self.get_downmost_row(row, col) {
+            Some(n) => n,
+            None => return None,
+        };
 
         // one letter words are not allowed
         if start == end {
@@ -338,7 +318,6 @@ impl Board {
         }
 
         let mut word = String::new();
-
         for row in start..=end {
             word.push(self.board[row][col].tile);
         }
@@ -352,16 +331,15 @@ impl Board {
             return None;
         }
 
-        // get to the beginning of the word
-        let mut start = col;
-        while start > 0 && self.board[row][start-1].tile != '-' {
-            start -= 1;
-        }
-
-        let mut end = col;
-        while end < 14 && self.board[row][end+1].tile != '-' {
-            end += 1;
-        }
+        // get the bounds of the word
+        let start = match self.get_leftmost_col(row, col) {
+            Some(n) => n,
+            None => return None,
+        };
+        let end = match self.get_rightmost_col(row, col) {
+            Some(n) => n,
+            None => return None,
+        };
 
         // one letter words are not allowed
         if start == end {
@@ -369,7 +347,6 @@ impl Board {
         }
 
         let mut word = String::new();
-
         for col in  start..=end {
             word.push(self.board[row][col].tile);
         }

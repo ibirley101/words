@@ -20,7 +20,7 @@ pub enum ShellStatus {
     Exit,
     Submit(i32),
     Swap,
-    Err,
+    Err(String),
 }
 
 pub struct Shell<'a> {
@@ -50,7 +50,10 @@ impl<'a> Shell<'a> {
                 ShellStatus::Exit => return status,
                 ShellStatus::Submit(_) => return status,
                 ShellStatus::Swap => return status,
-                ShellStatus::Err => continue,
+                ShellStatus::Err(msg) => {
+                    print!("{msg}");
+                    continue
+                },
             }
         }
     }
@@ -204,15 +207,14 @@ impl<'a> Shell<'a> {
             ShellCommand::Unstage => self.exec_unstage(),
             ShellCommand::WriteAcross(args) => self.exec_write_across(args),
             ShellCommand::WriteDown(args) => self.exec_write_down(args),
-            ShellCommand::Err => ShellStatus::Err,
+            ShellCommand::Err => ShellStatus::Err(String::new()),
         }
     }
 
     fn exec_help(&mut self, args: Vec<String>) -> ShellStatus {
         if !self.player.rackless {
             if args.len() != 0 {
-                println!("Unexpected arguments.");
-                return ShellStatus::Err;
+                return ShellStatus::Err(String::from("Unexpected arguments.\n"));
             }
 
             let (word, score, row, col, across) =
@@ -224,8 +226,7 @@ impl<'a> Shell<'a> {
             }
         } else {
             if args.len() != 1 {
-                println!("Please provide all chars with no delimiters.");
-                return ShellStatus::Err;
+                return ShellStatus::Err(String::from("Please provide all chars with no delimiters.\n"));
             }
 
             let helpstr = args.first().expect("Checked that first exists.").chars();
@@ -234,7 +235,7 @@ impl<'a> Shell<'a> {
                 help_rack.add_tile(c);
             }
             if help_rack.is_empty() {
-                return ShellStatus::Err;
+                return ShellStatus::Err(String::from("Expected non-empty rack.\n"));
             }
             let (word, score, row, col, across) = find_greediest_word(self.board, &help_rack);
             if across {
@@ -249,7 +250,7 @@ impl<'a> Shell<'a> {
     fn exec_put(&mut self, args: Vec<String>) -> ShellStatus {
         let (letter, row, col) = match self.parse_put(args) {
             Some((letter, row, col)) => (letter, row, col),
-            None => return ShellStatus::Err,
+            None => return ShellStatus::Err(String::from("Could not parse arguments.\n")),
         };
         self.board.put_tile(letter, row, col);
 
@@ -273,8 +274,7 @@ impl<'a> Shell<'a> {
 
     fn exec_swap(&mut self, args: Vec<String>) -> ShellStatus {
         if args.len() != 1 {
-            println!("Please provide all chars with no delimiters.");
-            return ShellStatus::Err;
+            return ShellStatus::Err(String::from("Please provide all chars with no delimiters.\n"));
         }
 
         let swapstr = args.first().expect("Checked that first exists.").chars();
@@ -282,12 +282,12 @@ impl<'a> Shell<'a> {
         for c in swapstr {
             to_swap.push(c.to_ascii_uppercase());
         }
-        
+
         if self.player.rack.swap(&mut self.bag, to_swap) {
             ShellStatus::Swap
         }
         else {
-            ShellStatus::Err
+            ShellStatus::Err(String::from("Unable to swap. Did you try to swap a letter that wasn't in your rack?\n"))
         }
     }
 
@@ -303,7 +303,7 @@ impl<'a> Shell<'a> {
     fn exec_write_across(&mut self, args: Vec<String>) -> ShellStatus {
         let (word, row, col) = match self.parse_write(args) {
             Some((word, row, col)) => (word, row, col),
-            None => return ShellStatus::Err,
+            None => return ShellStatus::Err(String::from("Could not parse arguments.\n")),
         };
         self.board
             .write_across_from_rack(&mut self.player.rack, word, row, col);
@@ -314,7 +314,7 @@ impl<'a> Shell<'a> {
     fn exec_write_down(&mut self, args: Vec<String>) -> ShellStatus {
         let (word, row, col) = match self.parse_write(args) {
             Some((word, row, col)) => (word, row, col),
-            None => return ShellStatus::Err,
+            None => return ShellStatus::Err(String::from("Could not parse arguments.\n")),
         };
         self.board
             .write_down_from_rack(&mut self.player.rack, word, row, col);
