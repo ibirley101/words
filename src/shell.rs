@@ -52,8 +52,8 @@ impl<'a> Shell<'a> {
                 ShellStatus::Swap => return status,
                 ShellStatus::Err(msg) => {
                     print!("{msg}");
-                    continue
-                },
+                    continue;
+                }
             }
         }
     }
@@ -217,16 +217,23 @@ impl<'a> Shell<'a> {
                 return ShellStatus::Err(String::from("Unexpected arguments.\n"));
             }
 
-            let (word, score, row, col, across) =
-                find_greediest_word(&mut self.board, &self.player.rack);
-            if across {
-                println!("Highest scorer is {word} at ({row}, {col}) ACROSS for {score} points.");
+            let word_choice = find_greediest_word(&mut self.board, &self.player.rack);
+            if word_choice.across {
+                println!(
+                    "Highest scorer is {} at ({}, {}) ACROSS for {} points.",
+                    word_choice.word, word_choice.row, word_choice.col, word_choice.score
+                );
             } else {
-                println!("Highest scorer is {word} at ({row}, {col}) DOWN for {score} points.");
+                println!(
+                    "Highest scorer is {} at ({}, {}) DOWN for {} points.",
+                    word_choice.word, word_choice.row, word_choice.col, word_choice.score
+                );
             }
         } else {
             if args.len() != 1 {
-                return ShellStatus::Err(String::from("Please provide all chars with no delimiters.\n"));
+                return ShellStatus::Err(String::from(
+                    "Please provide all chars with no delimiters.\n",
+                ));
             }
 
             let helpstr = args.first().expect("Checked that first exists.").chars();
@@ -237,11 +244,17 @@ impl<'a> Shell<'a> {
             if help_rack.is_empty() {
                 return ShellStatus::Err(String::from("Expected non-empty rack.\n"));
             }
-            let (word, score, row, col, across) = find_greediest_word(self.board, &help_rack);
-            if across {
-                println!("Highest scorer is {word} at ({row}, {col}) ACROSS for {score} points.");
+            let word_choice = find_greediest_word(self.board, &help_rack);
+            if word_choice.across {
+                println!(
+                    "Highest scorer is {} at ({}, {}) ACROSS for {} points.",
+                    word_choice.word, word_choice.row, word_choice.col, word_choice.score
+                );
             } else {
-                println!("Highest scorer is {word} at ({row}, {col}) DOWN for {score} points.");
+                println!(
+                    "Highest scorer is {} at ({}, {}) DOWN for {} points.",
+                    word_choice.word, word_choice.row, word_choice.col, word_choice.score
+                );
             }
         }
         ShellStatus::Continue
@@ -274,7 +287,9 @@ impl<'a> Shell<'a> {
 
     fn exec_swap(&mut self, args: Vec<String>) -> ShellStatus {
         if args.len() != 1 {
-            return ShellStatus::Err(String::from("Please provide all chars with no delimiters.\n"));
+            return ShellStatus::Err(String::from(
+                "Please provide all chars with no delimiters.\n",
+            ));
         }
 
         let swapstr = args.first().expect("Checked that first exists.").chars();
@@ -285,9 +300,10 @@ impl<'a> Shell<'a> {
 
         if self.player.rack.swap(&mut self.bag, to_swap) {
             ShellStatus::Swap
-        }
-        else {
-            ShellStatus::Err(String::from("Unable to swap. Did you try to swap a letter that wasn't in your rack?\n"))
+        } else {
+            ShellStatus::Err(String::from(
+                "Unable to swap. Did you try to swap a letter that wasn't in your rack?\n",
+            ))
         }
     }
 

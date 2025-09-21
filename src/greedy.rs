@@ -1,6 +1,14 @@
 use crate::game::{Board, Rack};
 
-pub fn find_greediest_word(board: &mut Board, rack: &Rack) -> (String, i32, usize, usize, bool) {
+pub struct WordChoice {
+    pub word: String,
+    pub score: i32,
+    pub row: usize,
+    pub col: usize,
+    pub across: bool,
+}
+
+pub fn find_greediest_word(board: &mut Board, rack: &Rack) -> WordChoice {
     // to play the greediest word, we will need to search all of the available
     // neighbors on the board.
 
@@ -8,11 +16,11 @@ pub fn find_greediest_word(board: &mut Board, rack: &Rack) -> (String, i32, usiz
     // in a dictionary word. (I'm scared because that sounds like a tricky search).
 
     // Once we've verified that there is at least one potential dictionary word.
-    let mut best_play: (String, i32, usize, usize, bool) = (String::new(), 0, 15, 15, false);
+    let mut best_play= WordChoice {word: String::new(), score: 0, row: 15, col: 15, across: false};
     for neighbor in board.get_neighbors() {
-        let best_opt = find_words(board, rack, neighbor.0, neighbor.1, best_play.1);
-        if best_opt.1 > best_play.1 {
-            best_play = best_opt;
+        let best_for_here = find_words(board, rack, neighbor.0, neighbor.1, best_play.score);
+        if best_for_here.score > best_play.score {
+            best_play = best_for_here;
         }
     }
 
@@ -24,7 +32,7 @@ fn find_words_across(
     tiles: &Vec<char>,
     row: usize,
     col: usize,
-    best: &mut (String, i32, usize, usize),
+    best: &mut WordChoice,
 ) {
     let across_candidates;
     if board.get_tile(row, col) == '-' {
@@ -40,11 +48,12 @@ fn find_words_across(
 
     if board.is_word_across(row, col) {
         let score = board.score();
-        if score > best.1 {
-            best.0 = substr.clone();
-            best.1 = score;
-            best.2 = row;
-            best.3 = board.get_leftmost_col(row, col).unwrap();
+        if score > best.score {
+            best.word = substr.clone();
+            best.score = score;
+            best.row = row;
+            best.col = board.get_leftmost_col(row, col).unwrap();
+            best.across = true;
         }
     }
 
@@ -68,7 +77,7 @@ fn find_words_down(
     tiles: &Vec<char>,
     row: usize,
     col: usize,
-    best: &mut (String, i32, usize, usize),
+    best: &mut WordChoice,
 ) {
     let down_candidates;
     if board.get_tile(row, col) == '-' {
@@ -84,11 +93,12 @@ fn find_words_down(
 
     if board.is_word_down(row, col) {
         let score = board.score();
-        if score > best.1 {
-            best.0 = substr.clone();
-            best.1 = score;
-            best.2 = board.get_upmost_row(row, col).unwrap();
-            best.3 = col;
+        if score > best.score {
+            best.word = substr.clone();
+            best.score = score;
+            best.row = board.get_upmost_row(row, col).unwrap();
+            best.col = col;
+            best.across = false;
         }
     }
 
@@ -113,23 +123,17 @@ fn find_words(
     row: usize,
     col: usize,
     best_score: i32,
-) -> (String, i32, usize, usize, bool) {
-    let mut best_across = (String::new(), best_score, 15, 15);
+) -> WordChoice {
+    let mut best_across = WordChoice {word: String::new(), score: best_score, row: 15, col: 15, across: true};
     find_words_across(board, &rack.get_tiles_vec(), row, col, &mut best_across);
 
-    let mut best_down = (String::new(), best_score, 15, 15);
+    let mut best_down = WordChoice {word: String::new(), score: best_score, row: 15, col: 15, across: false};
     find_words_down(board, &rack.get_tiles_vec(), row, col, &mut best_down);
 
-    if best_across.1 > best_down.1 {
-        (
-            best_across.0,
-            best_across.1,
-            best_across.2,
-            best_across.3,
-            true,
-        )
+    if best_across.score > best_down.score {
+        best_across
     } else {
-        (best_down.0, best_down.1, best_down.2, best_down.3, false)
+        best_down
     }
 }
 

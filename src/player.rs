@@ -58,11 +58,11 @@ impl Player {
     }
 
     fn play_turn_cpu(&mut self, board: &mut Board, _bag: &mut Bag) -> TurnResult {
-        let (word, _, row, col, across) = find_greediest_word(board, &mut self.rack);
-        if across {
-            board.write_across_from_rack(&mut self.rack, word, row, col);
+        let word_choice = find_greediest_word(board, &mut self.rack);
+        if word_choice.across {
+            board.write_across_from_rack(&mut self.rack, word_choice.word, word_choice.row, word_choice.col);
         } else {
-            board.write_down_from_rack(&mut self.rack, word, row, col);
+            board.write_down_from_rack(&mut self.rack, word_choice.word, word_choice.row, word_choice.col);
         }
         let score = board.submit();
 
