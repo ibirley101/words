@@ -3,7 +3,7 @@ use rand::seq::SliceRandom;
 use std::fs::File;
 use std::path::Path;
 use std::io::{self, BufRead};
-use std::collections::{HashSet, VecDeque};
+use std::collections::HashSet;
 
 const LETTER_SCORES: [i32; 26] = [1, 3, 3, 2, 1, 4, 2, 4, 1, 8, 5, 1, 3, 1, 1, 3, 10, 1, 1, 1, 1, 4, 4, 8, 4, 10];
 
@@ -483,20 +483,53 @@ impl Board {
         }
 
         
-        // validate fixed dimension:
-        let mut const_row = false;
-        let mut const_col = false;
-
         let tile1_row = self.staged_spaces[0].0;
         let tile1_col = self.staged_spaces[0].1;
         let tile2_row = self.staged_spaces[1].0;
         let tile2_col = self.staged_spaces[1].1;
 
+        // the fixed dimension determines which functions we use later
+        // we store these functions in function pointers now instead of repeating
+        // ourselves when we check the value of const_row or const_col.
+        type GetSpot = fn (&Board, usize, usize) -> Option<usize>;
+        type GetWord = fn (&Board, usize, usize) -> Option<String>;
+        type GetDim = fn (&(usize, usize)) -> usize;
+
+        fn get_row(space: &(usize, usize)) -> usize {
+            space.0
+        }
+        fn get_col(space: &(usize, usize)) -> usize{
+            space.1
+        }
+
+        let get_firstmost_spot: GetSpot;
+        let get_lastmost_spot: GetSpot;
+        let get_main_word: GetWord;
+        let get_crossing_word: GetWord;
+        let get_free_dim: GetDim;
+        let get_fixed_dim: GetDim;
+
+        let tile1_fixed;
+
         if tile1_row == tile2_row {
-            const_row = true;
+            get_firstmost_spot = Self::get_leftmost_col;
+            get_lastmost_spot = Self::get_rightmost_col;
+            get_main_word = Self::get_word_across;
+            get_crossing_word = Self::get_word_down;
+            get_fixed_dim = get_row;
+            get_free_dim = get_col;
+
+            tile1_fixed = tile1_row;
         }
         else if tile1_col == tile2_col {
-            const_col = true;
+            get_firstmost_spot = Self::get_upmost_row;
+            get_lastmost_spot = Self::get_downmost_row;
+            get_main_word = Self::get_word_down;
+            get_crossing_word = Self::get_word_across;
+            get_fixed_dim = get_col;
+            get_free_dim = get_row;
+
+            tile1_fixed = tile1_col;
         }
         else {
             println!("Invalid tile submission.");
@@ -504,17 +537,9 @@ impl Board {
         }
 
         for space in &self.staged_spaces {
-            if const_row {
-                if space.0 != tile1_row {
-                    println!("Invalid tile submission. Non-constant row.");
-                    return false;
-                }
-            }
-            else if const_col {
-                if space.1 != tile1_col {
-                    println!("Invalid tile submission. Non-constant column.");
-                    return false;
-                }
+            if get_fixed_dim(space) != tile1_fixed {
+                println!("Invalid tile submission. No fixed dimension.");
+                return false;
             }
         }
 
@@ -528,96 +553,46 @@ impl Board {
         // Get the max and min in the free dimension.
         let mut min_free = 16;
         let mut max_free = 0;
-        if const_row {
-            for space in &self.staged_spaces {
-                if space.1 > max_free {
-                    max_free = space.1;
-                }
-                if space.1 < min_free {
-                    min_free = space.1;
-                }
+        for space in &self.staged_spaces {
+            let free_dim = get_free_dim(space);
+            if free_dim > max_free {
+                max_free = free_dim;
             }
-        }
-        else if const_col {
-            for space in &self.staged_spaces {
-                if space.0 > max_free {
-                    max_free = space.1;
-                }
-                if space.0 < min_free {
-                    min_free = space.1;
-                }
+            if free_dim < min_free {
+                min_free = free_dim;
             }
         }
 
-        // check contiguity
-        if const_row {
-            let leftmost = self.get_leftmost_col(tile1_row, tile1_col).unwrap();
-            let rightmost = self.get_rightmost_col(tile1_row, tile1_col).unwrap();
+        let firstmost = get_firstmost_spot(self, tile1_row, tile1_col).unwrap();
+        let lastmost = get_lastmost_spot(self, tile1_row, tile1_col).unwrap();
 
-
-            for space in &self.staged_spaces {
-                if space.1 > rightmost || space.1 < leftmost {
-                    println!("Non-contiguous submission because {} not in [{} {}].", space.1, leftmost, rightmost);
-                    return false;
-                }
-            }
-        }
-        else if const_col {
-            let upmost = self.get_upmost_row(tile1_row, tile1_col).unwrap();
-            let downmost = self.get_downmost_row(tile1_row, tile1_col).unwrap();
-
-            for space in &self.staged_spaces {
-                if space.0 > downmost || space.0 < upmost {
-                    println!("Non-contiguous submission because {} not in [{} {}].", space.0, upmost, downmost);
-                    return false;
-                }
+        for space in &self.staged_spaces {
+            let free_dim = get_free_dim(space);
+            if free_dim > lastmost || free_dim < firstmost {
+                println!("Non-contiguous submission.");
+                return false;
             }
         }
 
-        // check the validity of the word
-        if const_row {
-            // check main word validity
-            let main_word = self.get_word_across(tile1_row, tile1_col).unwrap();
-
-            match self.word_list.binary_search(&main_word) {
-                Ok(_pos) => println!("{main_word} accepted"),
-                Err(_e) => {println!("{main_word} not found in dictionary"); return false },
-            }
-
-            // check crossing word validities
-            for space in &self.staged_spaces {
-                let word = self.get_word_down(space.0, space.1);
-
-                if !word.is_none() {
-                    let word = word.unwrap();
-                    match self.word_list.binary_search(&word) {
-                        Ok(_pos) => println!("{word} accepted"),
-                        Err(_e) => {println!("{word} not found in dictionary"); return false },
-                    }
-                }
-            }
-
-        } else if const_col {
-            let main_word = self.get_word_down(tile1_row, tile1_col).unwrap();
-            match self.word_list.binary_search(&main_word) {
-                Ok(_word) => println!("{main_word} accepted"),
-                Err(_e) => {println!("{main_word} not found in dictionary"); return false },
-            }
-
-            // check crossing word validities
-            for space in &self.staged_spaces {
-                let word = self.get_word_across(space.0, space.1);
-
-                if !word.is_none() {
-                    let word = word.unwrap();
-                    match self.word_list.binary_search(&word) {
-                        Ok(_pos) => println!("{word} accepted"),
-                        Err(_e) => {println!("{word} not found in dictionary"); return false },
-                    }
-                }
-            }
+        // check the validity of the main word
+        let main_word = get_main_word(self, tile1_row, tile1_col).unwrap();
+        match self.word_list.binary_search(&main_word) {
+            Ok(_pos) => println!("{main_word} accepted"),
+            Err(_e) => {println!("{main_word} not found in dictionary"); return false },
         }
 
+        // check crossing word validities
+        for space in &self.staged_spaces {
+            let word = get_crossing_word(self, space.0, space.1);
+            if word.is_none() {
+                continue;
+            }
+            let word = word.unwrap();
+            match self.word_list.binary_search(&word) {
+                Ok(_pos) => println!("{word} accepted"),
+                Err(_e) => {println!("{word} not found in dictionary"); return false },
+            }
+        }
         true
     }
 

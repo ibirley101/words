@@ -220,9 +220,9 @@ impl<'a> Shell<'a> {
             let (word, score, row, col, across) =
                 find_greediest_word(&mut self.board, &self.player.rack);
             if across {
-                println!("Highest scorer is {word} at ({row}, {col}) across for {score} points.");
+                println!("Highest scorer is {word} at ({row}, {col}) ACROSS for {score} points.");
             } else {
-                println!("Highest scorer is {word} at ({row}, {col}) down for {score} points.");
+                println!("Highest scorer is {word} at ({row}, {col}) DOWN for {score} points.");
             }
         } else {
             if args.len() != 1 {
@@ -239,9 +239,9 @@ impl<'a> Shell<'a> {
             }
             let (word, score, row, col, across) = find_greediest_word(self.board, &help_rack);
             if across {
-                println!("Highest scorer is {word} at ({row}, {col}) across for {score} points.");
+                println!("Highest scorer is {word} at ({row}, {col}) ACROSS for {score} points.");
             } else {
-                println!("Highest scorer is {word} at ({row}, {col}) down for {score} points.");
+                println!("Highest scorer is {word} at ({row}, {col}) DOWN for {score} points.");
             }
         }
         ShellStatus::Continue
