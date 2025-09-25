@@ -244,6 +244,18 @@ impl Board {
         Ok(word_list)
     }
     
+    pub fn get_board_chars(&self) -> Vec<Vec<char>> {
+        let mut result = Vec::new();
+        for row in &self.board {
+            let mut row_vec = Vec::new();
+            for space in row {
+                row_vec.push(space.tile);
+            }
+            result.push(row_vec);
+        }
+        result
+    }
+
     pub fn substr_promising(&mut self, substring: &String) -> bool {
         match self.partials_list.binary_search(substring) {
             Ok(_n) => { return true; }
